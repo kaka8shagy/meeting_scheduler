@@ -1,13 +1,22 @@
-// app/javascript/components/App.jsx
 import React from 'react';
+import { lazy, Suspense } from 'react';
+import { Outlet } from 'react-router';
 
-function App() {
+const Header = lazy(() => import('./Header'));
+const Footer = lazy(() => import('./Footer'));
+
+const App = () => {
   return (
-    <div>
-      <h1>Hello from React!</h1>
-      <p>This part of the page is now managed by React.</p>
+    <div className="app">
+      <Suspense fallback={<h1>Loading...</h1>}>
+        <Header />
+      </Suspense>
+      <Outlet />
+      <Suspense fallback={<h1>Loading...</h1>}>
+        <Footer />
+      </Suspense>
     </div>
   );
-}
+};
 
 export default App;

@@ -14,4 +14,13 @@ Rails.application.routes.draw do
   # root "posts#index"
 
   root "welcome#index"
+
+  # ... other specific Rails routes (e.g., /api/...)
+
+  # Catch-all route: MUST be the last route in your routes.rb
+  # This sends any unhandled request to your welcome#index action,
+  # where your React app will then take over routing.
+  get '*path', to: 'welcome#index', constraints: ->(request) {
+    !request.xhr? && request.format.html?
+  }
 end
