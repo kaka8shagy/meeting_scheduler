@@ -7,14 +7,18 @@ const Footer = lazy(() => import('./Footer'));
 
 const App = () => {
   return (
-    <div className="app">
-      <Suspense fallback={<h1>Loading...</h1>}>
-        <Header />
-      </Suspense>
-      <Outlet />
-      <Suspense fallback={<h1>Loading...</h1>}>
-        <Footer />
-      </Suspense>
+    <div className="app p-4 flex flex-col min-h-screen">
+      <div>
+        <Suspense fallback={<h1>Loading...</h1>}>
+          <Header />
+        </Suspense>
+      </div>
+      <div className="flex-1 py-4"><Outlet /></div>
+      <div>
+        <Suspense fallback={<h1>Loading...</h1>}>
+          <Footer />
+        </Suspense>
+      </div>
     </div>
   );
 };

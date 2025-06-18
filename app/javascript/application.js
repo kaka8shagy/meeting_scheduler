@@ -4,7 +4,7 @@ import { lazy, Suspense } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router';
 import App from './components/App';
 
-const Body = lazy(() => import('./components/Body'));
+const Home = lazy(() => import('./components/Home'));
 const About = lazy(() => import('./components/About'));
 const Contact = lazy(() => import('./components/Contact'));
 const Error = lazy(() => import('./components/Error'));
@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
           path: '/',
           element: (
             <Suspense fallback={<h1>Loading...</h1>}>
-              <Body />
+              <Home />
             </Suspense>
           ),
         },
