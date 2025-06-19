@@ -1,4 +1,9 @@
 Rails.application.routes.draw do
+  get "sessions/new"
+  get "sessions/create"
+  get "sessions/destroy"
+  get "users/new"
+  get "users/create"
   get "welcome/index"
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 
@@ -13,14 +18,21 @@ Rails.application.routes.draw do
   # Defines the root path route ("/")
   # root "posts#index"
 
-  root "welcome#index"
+  root 'welcome#index'
 
   # ... other specific Rails routes (e.g., /api/...)
+
+  get    'signup',  to: 'users#new'
+  post   'signup',  to: 'users#create'
+  get    'login',   to: 'sessions#new'
+  post   'login',   to: 'sessions#create'
+  delete 'logout',  to: 'sessions#destroy'
 
   # Catch-all route: MUST be the last route in your routes.rb
   # This sends any unhandled request to your welcome#index action,
   # where your React app will then take over routing.
   get '*path', to: 'welcome#index', constraints: ->(request) {
-    !request.xhr? && request.format.html?
+    !request.xhr? && request.format.html? &&
+    !request.path.match(%r{^/(login|logout|signup)$})
   }
 end
