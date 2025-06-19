@@ -12,6 +12,18 @@ class BookingsController < ApplicationController
     if user_ids.blank? || user_ids.empty?
       render json: { errors: ['At least one attendee must be provided.'] }, status: :unprocessable_entity and return
     end
+
+    # Conflict checking
+    conflicts = find_booking_conflicts(
+      room_id: params[:booking][:room_id],
+      user_ids: user_ids + [user_id],
+      start_time: params[:booking][:start_time],
+      end_time: params[:booking][:end_time]
+    )
+    if conflicts.any?
+      render json: { errors: conflicts }, status: :unprocessable_entity and return
+    end
+
     booking = Booking.new(booking_params)
     if booking.save
         user_ids.each do |user_id|
@@ -94,5 +106,36 @@ class BookingsController < ApplicationController
         } 
       } 
     })
+  end
+
+  # Returns an array of conflict error messages
+  def find_booking_conflicts(room_id:, user_ids:, start_time:, end_time:)
+    errors = []
+    return errors if room_id.blank? || user_ids.blank? || start_time.blank? || end_time.blank?
+
+    start_time = Time.parse(start_time).utc
+    end_time = Time.parse(end_time).utc
+
+    # Room conflict
+    room_conflicts = Booking.where(room_id: room_id)
+      .where.not(id: params[:id])
+      .where('start_time < ? AND end_time > ?', end_time, start_time)
+    if room_conflicts.exists?
+      errors << "Meeting room is already booked for the selected time."
+    end
+
+    # User/attendee conflicts
+    user_conflicts = Booking.joins(:attendees)
+      .where(attendees: { user_id: user_ids })
+      .where.not(id: params[:id])
+      .where('start_time < ? AND end_time > ?', end_time, start_time)
+      .distinct
+    if user_conflicts.exists?
+      conflicted_users = user_conflicts.map { |b| b.attendees.map(&:user_id) }.flatten.uniq & user_ids.map(&:to_i)
+      conflicted_user_names = User.where(id: conflicted_users).pluck(:name)
+      errors << "The following users are already booked for another meeting at this time: #{conflicted_user_names.join(', ')}."
+    end
+
+    errors
   end
 end 
