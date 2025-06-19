@@ -13,6 +13,19 @@ class BookingsController < ApplicationController
       render json: { errors: ['At least one attendee must be provided.'] }, status: :unprocessable_entity and return
     end
 
+    # Strict end_time validation
+    end_time_str = params[:booking][:end_time]
+    if end_time_str.blank?
+      render json: { errors: ['end_time is required'] }, status: :unprocessable_entity and return
+    end
+    end_time = Time.parse(end_time_str).utc rescue nil
+    if end_time.nil?
+      render json: { errors: ['Invalid end_time format'] }, status: :unprocessable_entity and return
+    end
+    if end_time <= Time.now.utc
+      render json: { errors: ['Cannot create a booking with end time in the past'] }, status: :unprocessable_entity and return
+    end
+
     # Conflict checking
     conflicts = find_booking_conflicts(
       room_id: params[:booking][:room_id],
