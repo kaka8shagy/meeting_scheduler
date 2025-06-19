@@ -6,6 +6,8 @@ import MeetingForm from './MeetingForm';
 const Landing = () => {
   const [showMeetingForm, setShowMeetingForm] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedMeeting, setSelectedMeeting] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Handler for calendar navigation (e.g., when user clicks next/prev)
   const handleNavigate = (date) => {
@@ -15,6 +17,29 @@ const Landing = () => {
   // Handler for date picker
   const handleDateChange = (e) => {
     setSelectedDate(new Date(e.target.value));
+  };
+
+  // Handler for meeting selection
+  const handleSelectMeeting = (event) => {
+    setSelectedMeeting(event);
+    setShowMeetingForm(true);
+  };
+
+  // Handler for closing the meeting form
+  const handleCloseMeetingForm = () => {
+    setShowMeetingForm(false);
+    setSelectedMeeting(null);
+  };
+
+  // Handler for creating a new meeting
+  const handleCreateMeeting = () => {
+    setSelectedMeeting(null);
+    setShowMeetingForm(true);
+  };
+
+  // Handler for refreshing the calendar
+  const handleRefreshCalendar = () => {
+    setRefreshKey(prev => prev + 1);
   };
 
   return (
@@ -35,19 +60,28 @@ const Landing = () => {
             </div>
             <button
               className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 w-full"
-              onClick={() => setShowMeetingForm(true)}
+              onClick={handleCreateMeeting}
             >
               + Create Meeting
             </button>
           </aside>
           {/* Calendar takes the rest of the space */}
           <div className="flex-1">
-            <Calendar selectedDate={selectedDate} onNavigate={handleNavigate} />
+            <Calendar 
+              key={refreshKey}
+              selectedDate={selectedDate} 
+              onNavigate={handleNavigate} 
+              onSelectEvent={handleSelectMeeting}
+            />
           </div>
         </div>
       </main>
       {showMeetingForm && (
-        <MeetingForm onClose={() => setShowMeetingForm(false)} />
+        <MeetingForm 
+          meeting={selectedMeeting} 
+          onClose={handleCloseMeetingForm}
+          onSuccess={handleRefreshCalendar}
+        />
       )}
     </div>
   );

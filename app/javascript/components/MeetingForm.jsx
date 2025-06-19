@@ -1,9 +1,14 @@
 import React, { useState, useEffect, Fragment } from 'react';
-import { fetchUsers, fetchMeetingRooms, createBooking } from './api';
+import { fetchUsers, fetchMeetingRooms, createBooking, updateBooking, deleteBooking } from './api';
 import { Combobox } from '@headlessui/react';
 import { CheckIcon, SelectorIcon } from '@heroicons/react/solid';
+import moment from 'moment';
+import { toUTCISO, fromUTCToLocal, isValidTimeRange } from './utils/timeUtils';
 
-const MeetingForm = ({ onClose, meeting, onDelete, onUpdate }) => {
+// Configure moment to use UTC
+moment.utc();
+
+const MeetingForm = ({ onClose, meeting, onDelete, onUpdate, onSuccess }) => {
   const [title, setTitle] = useState(meeting?.title || '');
   const [startDateTime, setStartDateTime] = useState(meeting?.startDateTime || (meeting?.date && meeting?.startTime ? `${meeting.date}T${meeting.startTime}` : ''));
   const [endDateTime, setEndDateTime] = useState(meeting?.endDateTime || (meeting?.date && meeting?.endTime ? `${meeting.date}T${meeting.endTime}` : ''));
@@ -15,6 +20,19 @@ const MeetingForm = ({ onClose, meeting, onDelete, onUpdate }) => {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState('');
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [isCreator, setIsCreator] = useState(false);
+
+  // Get current user ID and check if user is creator
+  useEffect(() => {
+    const userIdMeta = document.querySelector('meta[name="current-user-id"]');
+    const userId = userIdMeta ? userIdMeta.content : null;
+    setCurrentUserId(userId);
+    
+    if (meeting && userId) {
+      setIsCreator(meeting.user_id === parseInt(userId));
+    }
+  }, [meeting]);
 
   // Fetch users and rooms
   useEffect(() => {
@@ -26,6 +44,33 @@ const MeetingForm = ({ onClose, meeting, onDelete, onUpdate }) => {
       .catch(() => setRooms([]));
   }, []);
 
+  // Update form when meeting changes
+  useEffect(() => {
+    console.log('Meeting data received:', meeting);
+    if (meeting) {
+      setTitle(meeting.title || '');
+      // Convert UTC times to local datetime-local format for display using utility function
+      setStartDateTime(fromUTCToLocal(meeting.start));
+      setEndDateTime(fromUTCToLocal(meeting.end));
+      setRoomId(meeting.room_id || '');
+      setDescription(meeting.description || '');
+      // Map attendees from the meeting data
+      console.log('Meeting attendees:', meeting.attendees);
+      if (meeting.attendees && Array.isArray(meeting.attendees)) {
+        setAttendees(meeting.attendees);
+      } else {
+        setAttendees([]);
+      }
+    } else {
+      setTitle('');
+      setStartDateTime('');
+      setEndDateTime('');
+      setRoomId('');
+      setDescription('');
+      setAttendees([]);
+    }
+  }, [meeting]);
+
   // Basic validation
   const validate = () => {
     const errs = {};
@@ -33,7 +78,7 @@ const MeetingForm = ({ onClose, meeting, onDelete, onUpdate }) => {
     if (!startDateTime) errs.startDateTime = 'Start date & time is required';
     if (!endDateTime) errs.endDateTime = 'End date & time is required';
     if (!roomId) errs.roomId = 'Meeting room is required';
-    if (startDateTime && endDateTime && new Date(endDateTime) <= new Date(startDateTime)) {
+    if (startDateTime && endDateTime && !isValidTimeRange(startDateTime, endDateTime)) {
       errs.endDateTime = 'End time must be after start time';
     }
     if (attendees.length === 0) errs.attendees = 'At least one attendee required';
@@ -46,23 +91,48 @@ const MeetingForm = ({ onClose, meeting, onDelete, onUpdate }) => {
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
     setLoading(true);
+    
     // Prepare attendees as array of IDs for backend
     const attendeeIds = attendees.map(a => a.id);
-    // Get current user id from meta tag
-    const userIdMeta = document.querySelector('meta[name="current-user-id"]');
-    const creatorUserId = userIdMeta ? userIdMeta.content : null;
+    
+    // Convert local datetime strings to UTC ISO strings for backend using utility function
+    const startTimeUTC = toUTCISO(startDateTime);
+    const endTimeUTC = toUTCISO(endDateTime);
+    
     try {
-      await createBooking({
-        title,
-        start_time: startDateTime,
-        end_time: endDateTime,
-        room_id: roomId,
-        description,
-        user_ids: attendeeIds,
-        user_id: creatorUserId
-      });
+      if (meeting?.id) {
+        // Update existing booking
+        if (!isCreator) {
+          setErrors({ general: 'You can only edit meetings you created.' });
+          setLoading(false);
+          return;
+        }
+        await updateBooking(meeting.id, {
+          title,
+          start_time: startTimeUTC,
+          end_time: endTimeUTC,
+          room_id: roomId,
+          description,
+          user_ids: attendeeIds,
+        });
+      } else {
+        // Create new booking
+        await createBooking({
+          title,
+          start_time: startTimeUTC,
+          end_time: endTimeUTC,
+          room_id: roomId,
+          description,
+          user_ids: attendeeIds,
+          user_id: currentUserId
+        });
+      }
       setLoading(false);
       onClose();
+      // Refresh the page or trigger a callback to update the calendar
+      if (onSuccess) {
+        onSuccess();
+      }
     } catch (error) {
       setLoading(false);
       if (error.response && error.response.data && error.response.data.errors) {
@@ -83,6 +153,31 @@ const MeetingForm = ({ onClose, meeting, onDelete, onUpdate }) => {
     }
   };
 
+  const handleDelete = async () => {
+    if (!isCreator) {
+      setErrors({ general: 'You can only delete meetings you created.' });
+      return;
+    }
+
+    if (!window.confirm('Are you sure you want to delete this meeting?')) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await deleteBooking(meeting.id);
+      setLoading(false);
+      onClose();
+      // Refresh the page or trigger a callback to update the calendar
+      if (onSuccess) {
+        onSuccess();
+      }
+    } catch (error) {
+      setLoading(false);
+      setErrors({ general: 'Failed to delete meeting. Please try again.' });
+    }
+  };
+
   // Filter users for Combobox
   const filteredUsers = query === '' ? users : users.filter(user =>
     user.name.toLowerCase().includes(query.toLowerCase()) ||
@@ -99,28 +194,60 @@ const MeetingForm = ({ onClose, meeting, onDelete, onUpdate }) => {
         >
           &times;
         </button>
-        <h2 className="text-2xl font-extrabold mb-6 text-center text-gray-800">{meeting?.id ? 'Edit Meeting' : 'Create Meeting'}</h2>
+        <h2 className="text-2xl font-extrabold mb-6 text-center text-gray-800">
+          {meeting?.id ? (isCreator ? 'Edit Meeting' : 'View Meeting') : 'Create Meeting'}
+        </h2>
+        
+        {errors.general && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            {errors.general}
+          </div>
+        )}
+        
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label className="block font-semibold mb-1">Title *</label>
-            <input type="text" className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500" value={title} onChange={e => setTitle(e.target.value)} />
+            <input 
+              type="text" 
+              className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500" 
+              value={title} 
+              onChange={e => setTitle(e.target.value)}
+              disabled={meeting?.id && !isCreator}
+            />
             {errors.title && <div className="text-red-500 text-sm mt-1">{errors.title}</div>}
           </div>
           <div className="flex gap-4">
             <div className="flex-1">
               <label className="block font-semibold mb-1">Start Date & Time *</label>
-              <input type="datetime-local" className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500" value={startDateTime} onChange={e => setStartDateTime(e.target.value)} />
+              <input 
+                type="datetime-local" 
+                className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500" 
+                value={startDateTime} 
+                onChange={e => setStartDateTime(e.target.value)}
+                disabled={meeting?.id && !isCreator}
+              />
               {errors.startDateTime && <div className="text-red-500 text-sm mt-1">{errors.startDateTime}</div>}
             </div>
             <div className="flex-1">
               <label className="block font-semibold mb-1">End Date & Time *</label>
-              <input type="datetime-local" className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500" value={endDateTime} onChange={e => setEndDateTime(e.target.value)} />
+              <input 
+                type="datetime-local" 
+                className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500" 
+                value={endDateTime} 
+                onChange={e => setEndDateTime(e.target.value)}
+                disabled={meeting?.id && !isCreator}
+              />
               {errors.endDateTime && <div className="text-red-500 text-sm mt-1">{errors.endDateTime}</div>}
             </div>
           </div>
           <div>
             <label className="block font-semibold mb-1">Meeting Room *</label>
-            <select className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500" value={roomId} onChange={e => setRoomId(e.target.value)}>
+            <select 
+              className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500" 
+              value={roomId} 
+              onChange={e => setRoomId(e.target.value)}
+              disabled={meeting?.id && !isCreator}
+            >
               <option value="">Select a room</option>
               {rooms.map(room => (
                 <option key={room.id} value={room.id}>{room.name}</option>
@@ -130,7 +257,13 @@ const MeetingForm = ({ onClose, meeting, onDelete, onUpdate }) => {
           </div>
           <div>
             <label className="block font-semibold mb-1">Attendees *</label>
-            <Combobox multiple value={attendees} onChange={setAttendees} onClose={() => setQuery('')}>
+            <Combobox 
+              multiple 
+              value={attendees} 
+              onChange={setAttendees} 
+              onClose={() => setQuery('')}
+              disabled={meeting?.id && !isCreator}
+            >
               {attendees.length > 0 && (
                 <ul className="mb-2 flex flex-wrap gap-2">
                   {attendees.map((user) => (
@@ -144,6 +277,7 @@ const MeetingForm = ({ onClose, meeting, onDelete, onUpdate }) => {
                 onChange={e => setQuery(e.target.value)}
                 value={query}
                 placeholder="Select attendees..."
+                disabled={meeting?.id && !isCreator}
               />
               <Combobox.Options className="border empty:invisible absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
                 {filteredUsers.length === 0 && query !== '' && (
@@ -160,22 +294,37 @@ const MeetingForm = ({ onClose, meeting, onDelete, onUpdate }) => {
           </div>
           <div>
             <label className="block font-semibold mb-1">Description/Notes</label>
-            <textarea className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500" value={description} onChange={e => setDescription(e.target.value)} />
+            <textarea 
+              className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500" 
+              value={description} 
+              onChange={e => setDescription(e.target.value)}
+              disabled={meeting?.id && !isCreator}
+            />
           </div>
           <div className="flex justify-between items-center mt-8">
             <div>
-              <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-semibold shadow-sm transition" disabled={loading}>
-                {meeting?.id ? 'Update' : 'Create'}
-              </button>
+              {meeting?.id && isCreator ? (
+                <>
+                  <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-semibold shadow-sm transition" disabled={loading}>
+                    Update
+                  </button>
+                  <button type="button" className="ml-2 bg-red-500 hover:bg-red-600 text-white px-5 py-2 rounded-lg font-semibold transition" onClick={handleDelete} disabled={loading}>
+                    Delete
+                  </button>
+                </>
+              ) : meeting?.id ? (
+                <button type="button" className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-5 py-2 rounded-lg font-semibold transition" onClick={onClose}>
+                  Close
+                </button>
+              ) : (
+                <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-semibold shadow-sm transition" disabled={loading}>
+                  Create
+                </button>
+              )}
               <button type="button" className="ml-2 bg-gray-200 hover:bg-gray-300 text-gray-700 px-5 py-2 rounded-lg font-semibold transition" onClick={onClose}>
                 Cancel
               </button>
             </div>
-            {meeting?.id && (
-              <button type="button" className="bg-red-500 hover:bg-red-600 text-white px-5 py-2 rounded-lg font-semibold transition" onClick={onDelete}>
-                Delete
-              </button>
-            )}
           </div>
         </form>
       </div>

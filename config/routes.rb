@@ -32,7 +32,7 @@ Rails.application.routes.draw do
 
   resources :meeting_rooms, only: [:index, :create]
 
-  resources :bookings, only: [:create, :index]
+  resources :bookings, only: [:create, :index, :update, :destroy]
 
   # Catch-all route: MUST be the last route in your routes.rb
   # This sends any unhandled request to your welcome#index action,
