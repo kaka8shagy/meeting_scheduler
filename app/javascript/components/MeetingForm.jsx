@@ -10,8 +10,8 @@ moment.utc();
 
 const MeetingForm = ({ onClose, meeting, onDelete, onUpdate, onSuccess }) => {
   const [title, setTitle] = useState(meeting?.title || '');
-  const [startDateTime, setStartDateTime] = useState(meeting?.startDateTime || (meeting?.date && meeting?.startTime ? `${meeting.date}T${meeting.startTime}` : ''));
-  const [endDateTime, setEndDateTime] = useState(meeting?.endDateTime || (meeting?.date && meeting?.endTime ? `${meeting.date}T${meeting.endTime}` : ''));
+  const [startDateTime, setStartDateTime] = useState('');
+  const [endDateTime, setEndDateTime] = useState('');
   const [roomId, setRoomId] = useState(meeting?.roomId || '');
   const [attendees, setAttendees] = useState(meeting?.attendees ? meeting.attendees.map(a => typeof a === 'object' ? a : null).filter(Boolean) : []);
   const [description, setDescription] = useState(meeting?.description || '');
@@ -49,12 +49,12 @@ const MeetingForm = ({ onClose, meeting, onDelete, onUpdate, onSuccess }) => {
     console.log('Meeting data received:', meeting);
     if (meeting) {
       setTitle(meeting.title || '');
-      // Convert UTC times to local datetime-local format for display using utility function
+      // Convert UTC times from backend to local datetime-local format for display
       setStartDateTime(fromUTCToLocal(meeting.start));
       setEndDateTime(fromUTCToLocal(meeting.end));
       setRoomId(meeting.room_id || '');
       setDescription(meeting.description || '');
-      // Map attendees from the meeting data
+      
       console.log('Meeting attendees:', meeting.attendees);
       if (meeting.attendees && Array.isArray(meeting.attendees)) {
         setAttendees(meeting.attendees);
@@ -62,6 +62,7 @@ const MeetingForm = ({ onClose, meeting, onDelete, onUpdate, onSuccess }) => {
         setAttendees([]);
       }
     } else {
+      // For new meetings, initialize with empty values
       setTitle('');
       setStartDateTime('');
       setEndDateTime('');
@@ -95,7 +96,7 @@ const MeetingForm = ({ onClose, meeting, onDelete, onUpdate, onSuccess }) => {
     // Prepare attendees as array of IDs for backend
     const attendeeIds = attendees.map(a => a.id);
     
-    // Convert local datetime strings to UTC ISO strings for backend using utility function
+    // Convert local datetime strings to UTC ISO strings for backend storage
     const startTimeUTC = toUTCISO(startDateTime);
     const endTimeUTC = toUTCISO(endDateTime);
     
