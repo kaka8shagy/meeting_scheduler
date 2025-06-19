@@ -5,10 +5,11 @@
     "esbuild": "^0.25.5"
   },
   "scripts": {
-    "build": "esbuild app/javascript/*.* --loader:.js=jsx --bundle --sourcemap --format=esm --outdir=app/assets/builds --public-path=/assets"
+    "build": "esbuild app/javascript/application.js --loader:.js=jsx --bundle --sourcemap --format=esm --outdir=app/assets/builds --public-path=/assets"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.4",
+    "@heroicons/react": "^2.2.0",
     "@hotwired/stimulus": "^3.2.2",
     "@hotwired/turbo-rails": "^8.0.16",
     "@tailwindcss/postcss": "^4.1.10",

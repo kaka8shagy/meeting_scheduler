@@ -1,23 +1,37 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar as BigCalendar, momentLocalizer, Views } from 'react-big-calendar';
 import moment from 'moment';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
+import { fetchBookings } from './api';
 
 const localizer = momentLocalizer(moment);
 
-// Placeholder events
-const events = [
-  {
-    id: 0,
-    title: 'Board Meeting',
-    start: new Date(),
-    end: moment().add(1, 'hour').toDate(),
-    allDay: false,
-  },
-];
+const Calendar = ({ selectedDate, onNavigate }) => {
+  const [view, setView] = useState(Views.DAY);
+  const [events, setEvents] = useState([]);
+  console.log(events);
 
-const Calendar = () => {
-  const [view, setView] = useState(Views.MONTH);
+  useEffect(() => {
+    const loadBookings = async () => {
+      try {
+        const bookings = await fetchBookings();
+        // Transform bookings to match BigCalendar's event format
+        const events = bookings.map(booking => ({
+          id: booking.id,
+          title: booking.title,
+          start: new Date(booking.start_time),
+          end: new Date(booking.end_time),
+          description: booking.description,
+          room_id: booking.room_id,
+          user_id: booking.user_id,
+        }));
+        setEvents(events);
+      } catch (error) {
+        console.error('Failed to fetch bookings:', error);
+      }
+    };
+    loadBookings();
+  }, []);
 
   return (
     <div className="bg-white rounded shadow p-4 min-h-[400px]">
@@ -26,10 +40,12 @@ const Calendar = () => {
         events={events}
         startAccessor="start"
         endAccessor="end"
-        style={{ height: 500 }}
+        style={{ height: 800 }}
         views={['month', 'week', 'day']}
         view={view}
         onView={setView}
+        date={selectedDate}
+        onNavigate={onNavigate}
         popup
       />
     </div>

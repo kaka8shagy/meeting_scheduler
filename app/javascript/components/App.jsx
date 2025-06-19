@@ -14,11 +14,11 @@ const App = () => {
         </Suspense>
       </div>
       <div className="flex-1 py-4"><Outlet /></div>
-      <div>
+      {/* <div>
         <Suspense fallback={<h1>Loading...</h1>}>
           <Footer />
         </Suspense>
-      </div>
+      </div> */}
     </div>
   );
 };

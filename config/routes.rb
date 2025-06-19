@@ -28,6 +28,12 @@ Rails.application.routes.draw do
   post   'login',   to: 'sessions#create'
   delete 'logout',  to: 'sessions#destroy'
 
+  resources :users, only: [:new, :create, :index]
+
+  resources :meeting_rooms, only: [:index, :create]
+
+  resources :bookings, only: [:create, :index]
+
   # Catch-all route: MUST be the last route in your routes.rb
   # This sends any unhandled request to your welcome#index action,
   # where your React app will then take over routing.
