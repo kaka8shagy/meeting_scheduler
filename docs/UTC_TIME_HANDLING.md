@@ -1,6 +1,6 @@
 # UTC Time Handling
 
-This document outlines the UTC time handling approach implemented in the hybrid app to ensure consistency across all time-related operations.
+This document outlines the UTC time handling approach implemented in the meeting scheduler app to ensure consistency across all time-related operations.
 
 ## Overview
 
