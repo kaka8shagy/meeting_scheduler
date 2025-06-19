@@ -15,6 +15,7 @@ const MeetingForm = ({ onClose, meeting, onDelete, onUpdate, onSuccess }) => {
   const [roomId, setRoomId] = useState(meeting?.roomId || '');
   const [attendees, setAttendees] = useState(meeting?.attendees ? meeting.attendees.map(a => typeof a === 'object' ? a : null).filter(Boolean) : []);
   const [description, setDescription] = useState(meeting?.description || '');
+
   const [rooms, setRooms] = useState([]);
   const [users, setUsers] = useState([]);
   const [errors, setErrors] = useState({});
@@ -188,7 +189,7 @@ const MeetingForm = ({ onClose, meeting, onDelete, onUpdate, onSuccess }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-lg relative">
+      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full min-w-2xl max-w-lg relative">
         <button
           className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 text-2xl font-bold"
           onClick={onClose}
